@@ -1,7 +1,7 @@
 {
-  "name": "worker-name",
+  "name": "demo-simulation",
   "compatibility_date": "2025-09-15",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist/democesiumjs/browser"
   }
 }
