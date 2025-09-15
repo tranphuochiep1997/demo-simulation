@@ -3,11 +3,3 @@ body {
     margin: 0;
     padding: 0;
 }
-
-.cf-turnstile {
-    display: block;
-    position: absolute;
-    top: calc(50% - 34px);
-    left: calc(50% - 150px);
-    z-index: 1;
-}
