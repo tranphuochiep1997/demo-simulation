@@ -3,7 +3,6 @@
   "compatibility_date": "2025-09-15",
   "assets": {
     "directory": "./dist/democesiumjs/browser",
-    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
 }
