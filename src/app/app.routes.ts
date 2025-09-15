@@ -9,4 +9,8 @@ export const routes: Routes = [
         path: 'flood-simulation', 
         loadComponent: () => import('./features/cesium-flood-simulation/cesium-flood-simulation.component').then(m => m.CesiumFloodSimulationComponent)
     },
+    {
+        path: '**',
+        redirectTo: '/cesium-viewer'
+    }
 ];
