@@ -6,8 +6,20 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async
+    defer
+></script>
 </head>
 <body>
+  <div
+    class="cf-turnstile"
+    data-sitekey="0x4AAAAAAB1SQGyVvRJ8eN8i"
+    data-theme="light"
+    data-size="normal"
+    data-callback="onSuccess"
+  ></div>
   <app-root></app-root>
 </body>
 </html>
