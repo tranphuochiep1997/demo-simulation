@@ -122,7 +122,7 @@ export class BieuDoThuyDien implements OnInit {
           let txt = '';
           params.forEach(function(p: any){
             if (p.seriesName === 'Curve') {
-              txt += 'Volume: ' + p.value[0] + '<br/>H: ' + p.value[1];
+              txt += 'W: ' + p.value[0] + '<br/>H: ' + p.value[1];
             }
           });
           return txt;
