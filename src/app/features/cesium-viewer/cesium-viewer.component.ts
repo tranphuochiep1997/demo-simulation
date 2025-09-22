@@ -132,7 +132,6 @@ export class CesiumViewerComponent implements OnInit {
           const pos = position.getValue(time);
           if (!pos) return;
           const vel = velocityVectorProperty.getValue(time);
-          console.log({vel});
           Cartesian3.normalize(vel, vel);
           Transforms.rotationMatrixFromPositionVelocity(
             pos,

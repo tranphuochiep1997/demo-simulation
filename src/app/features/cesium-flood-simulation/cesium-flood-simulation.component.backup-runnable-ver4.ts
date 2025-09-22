@@ -213,7 +213,7 @@ export class CesiumFloodSimulationComponent implements OnInit {
       centerLon, 
       centerLat, 
       gridSize: 100, 
-      rainfall_mm_per_24h: 500, 
+      rainfall_mm_per_24h: 5000, 
       drainage_mm_per_hour: 1,
       simSpeed: 300
     });

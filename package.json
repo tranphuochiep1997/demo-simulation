@@ -28,7 +28,9 @@
     "@angular/forms": "^20.2.0",
     "@angular/platform-browser": "^20.2.0",
     "@angular/router": "^20.2.0",
+    "@fontsource/inter": "^5.2.8",
     "cesium": "^1.133.0",
+    "echarts": "^6.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
