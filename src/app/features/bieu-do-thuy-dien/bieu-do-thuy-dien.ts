@@ -38,7 +38,9 @@ export class BieuDoThuyDien implements OnInit {
     }
     this.thuyDienService.getData().subscribe(response => {
       const currentHour = new Date().getHours();
-      let viTriGioTrongResponse = response.findIndex(val => val.gio === `${currentHour}:00`);
+      console.log({currentHour});
+      let viTriGioTrongResponse = response.findIndex(val => val.gio === `${String(currentHour).padStart(2, '0')}:00`);
+      console.log({viTriGioTrongResponse});
       // Height to fill up to (current water level). If you want the whole curve, set to max height.
       let mucnuoc = response[viTriGioTrongResponse].htl4;
       this.updateWaterHeight(hwData, mucnuoc);
