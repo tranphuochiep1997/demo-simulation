@@ -1,7 +1,12 @@
 <div class="wrapper">
-    <div class="upper-chart">
-        <h2 class="title">Mực nước</h2>
-        <div class="description">{{mucNuocHienTai}}<span> m</span> | {{phanTramTheTich}}%<span> thể tích</span></div>
+    <div class="card-chart flex-2">
+        <div class="upper-chart">
+            <h2 class="title">Mực nước</h2>
+            <div class="description">{{mucNuocHienTai}}<span> m</span> | {{phanTramTheTich}}%<span> thể tích</span></div>
+        </div>
+        <div class="echart" #volumeChart></div>
     </div>
-    <div class="echart" #main></div>
+    <div class="card-chart flex-3">
+        <div class="echart" #changeChart></div>
+    </div>
 </div>

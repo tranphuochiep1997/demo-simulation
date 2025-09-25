@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import * as echarts from 'echarts';
 import { ThuyDienService } from '../../services/thuy-dien.service';
+import { ThongKeThuyDien } from '../../models/thong-ke-thuy-dien';
 
 @Component({
   selector: 'app-bieu-do-thuy-dien',
@@ -9,8 +10,10 @@ import { ThuyDienService } from '../../services/thuy-dien.service';
   styleUrl: './bieu-do-thuy-dien.scss'
 })
 export class BieuDoThuyDien implements OnInit {
-  @ViewChild('main', { static: true }) domRef!: ElementRef;
-  myChart!: echarts.ECharts;
+  @ViewChild('volumeChart', { static: true }) domRef!: ElementRef;
+  @ViewChild('changeChart', { static: true }) changeChartDomRef!: ElementRef;
+  volumeChart!: echarts.ECharts;
+  changeChart!: echarts.ECharts;
   mucNuocHienTai: number = 0;
   phanTramTheTich: number = 0;
   theTichToiDaSongTranh2: number = 795.6;
@@ -20,7 +23,8 @@ export class BieuDoThuyDien implements OnInit {
   }
 
   ngOnInit(): void {
-    this.myChart = echarts.init(this.domRef.nativeElement);
+    this.volumeChart = echarts.init(this.domRef.nativeElement);
+    this.changeChart = echarts.init(this.changeChartDomRef.nativeElement);
     // ----- your H-W data: [volume, height] sorted by height ascending -----
     // const hwData = [
     //   [24.26,110],
@@ -37,6 +41,7 @@ export class BieuDoThuyDien implements OnInit {
       hwData.push([this.calVolumeByHeightSongTranh(i) || 0, i]);
     }
     this.thuyDienService.getData().subscribe(response => {
+      console.log(response);
       const currentHour = new Date().getHours();
       console.log({currentHour});
       let viTriGioTrongResponse = response.findIndex(val => val.gio === `${String(currentHour).padStart(2, '0')}:00`);
@@ -64,6 +69,7 @@ export class BieuDoThuyDien implements OnInit {
         }, 3600 * 1000);
 
       }, delay);
+      this.updateBieuDoThayDoi(response);
     })
   }
 
@@ -205,7 +211,7 @@ export class BieuDoThuyDien implements OnInit {
       ]
     };
 
-    this.myChart.setOption(option);
+    this.volumeChart.setOption(option);
     this.cdr.detectChanges(); // or this.cdr.markForCheck();
   }
 
@@ -255,5 +261,180 @@ export class BieuDoThuyDien implements OnInit {
     }
     if (!pt) pt = hw[hw.length - 1];
     return pt;
+  }
+
+  updateBieuDoThayDoi(thongKes: ThongKeThuyDien[]) {
+    // const dataChart = {
+    //   timeSeries: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'],
+    //   mucNuocHienTai: [150,152,153,154,155,156,157,158],
+    //   luuLuongDen: [30,31,32,33,33,34,34,35],
+    //   luuLuongChayMay: [85,87,88,89,90,90,90,90],
+    //   luuLuongQuaTran: [5,5.1,5.2,5.3,5.4,5.5,5.6,5.7],
+    //   qVeThuBon: [240,242,245,248,250,252,254,256]
+    // }
+    const dataChart = {
+      timeSeries: [] as string[],
+      mucNuocHienTai: [] as number[],
+      luuLuongDen: [] as number[],
+      luuLuongChayMay: [] as number[],
+      luuLuongQuaTran: [] as number[],
+      qVeThuBon: [] as number[]
+    }
+    thongKes.sort((a, b) => (new Date(a.thoigianxa).getTime() - new Date(b.thoigianxa).getTime()))
+    .forEach(thongKe => {
+      dataChart.timeSeries.push(this.formatDateBieuDo(thongKe.thoigianxa));
+      dataChart.mucNuocHienTai.push(thongKe.htl4);
+      dataChart.luuLuongDen.push(thongKe.qvao4);
+      dataChart.luuLuongChayMay.push(thongKe.luuluongnhamay4);
+      dataChart.luuLuongQuaTran.push(thongKe.qxaquacua4);
+      dataChart.qVeThuBon.push(thongKe.qvethubon);
+    })
+    // Update change chart
+    const option = {
+      backgroundColor: '#0B1739',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+          label: {
+            backgroundColor: '#6a7985'
+          }
+        }
+      },
+      legend: {
+        data: [
+          'Mực nước hiện tại',
+          'Lưu lượng đến',
+          'Lưu lượng chạy máy',
+          'Lưu lượng qua tràn',
+          'Q về Thu Bồn'
+        ],
+        textStyle: { color: 'rgba(174, 185, 225, 1)' },
+        icon: 'circle'   // 🔹 use line-only instead of circle
+      },
+      grid: {
+        left: '5%',
+        right: '5%',
+        bottom: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: dataChart.timeSeries,
+        axisLabel: { 
+          color: '#aaa',
+          interval: 0,   // 🔹 force show all labels
+          rotate: 45,    // 🔹 optional: rotate to avoid overlapping
+          fontSize: 10   // 🔹 smaller font if needed
+        },
+      },
+      yAxis: [
+        {
+          type: 'value',
+          name: 'Lưu lượng (m³/s)',
+          position: 'left',
+          axisLabel: { color: '#aaa' },
+          splitLine: { show: false }
+        },
+        {
+          type: 'value',
+          name: 'Mực nước (m)',
+          position: 'right',
+          axisLabel: { color: '#aaa' },
+          splitLine: { show: false }
+        }
+      ],
+      series: [
+        {
+          name: 'Mực nước hiện tại',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          yAxisIndex: 1,
+          data: dataChart.mucNuocHienTai,
+          lineStyle: { color: '#a020f0' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(160,32,240,0.4)' },
+              { offset: 1, color: 'rgba(160,32,240,0)' }
+            ])
+          }
+        },
+        {
+          name: 'Lưu lượng đến',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: dataChart.luuLuongDen,
+          lineStyle: { color: '#00bfff' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(0,191,255,0.4)' },
+              { offset: 1, color: 'rgba(0,191,255,0)' }
+            ])
+          }
+        },
+        {
+          name: 'Lưu lượng chạy máy',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: dataChart.luuLuongChayMay,
+          lineStyle: { color: '#ffd700' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(255,215,0,0.4)' },
+              { offset: 1, color: 'rgba(255,215,0,0)' }
+            ])
+          }
+        },
+        {
+          name: 'Lưu lượng qua tràn',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: dataChart.luuLuongQuaTran,
+          lineStyle: { color: '#ff7f50' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(255,127,80,0.4)' },
+              { offset: 1, color: 'rgba(255,127,80,0.0)' }
+            ])
+          }
+        },
+        {
+          name: 'Q về Thu Bồn',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: dataChart.qVeThuBon,
+          lineStyle: { color: '#00ff7f' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(0,255,127,0.4)' },
+              { offset: 1, color: 'rgba(0,255,127,0)' }
+            ])
+          }
+        }
+      ]
+    };
+
+    this.changeChart.setOption(option);
+  }
+
+  formatDateBieuDo(isoString: Date) {
+    const date = new Date(isoString);
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 }
