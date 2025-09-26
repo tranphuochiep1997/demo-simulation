@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Giả lập 3D Lũ lụt — Three.js</title>
+  <style>
+    html,body{height:100%;margin:0;background:#111;color:#ddd;font-family:Inter,system-ui,Arial}
+    #info{position:absolute;left:12px;top:12px;z-index:2;backdrop-filter:blur(6px);padding:10px;border-radius:8px;background:rgba(0,0,0,0.35)}
+    #canvas-wrap{width:100%;height:100%}
+    a{color:#7dd3fc}
+    .small{font-size:13px;opacity:0.9}
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.152.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.152.0/examples/jsm/",
+      "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm",
+      "simplex-noise": "https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/+esm"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="info">
+    <strong>Giả lập 3D lũ lụt</strong> — di chuột để xoay, cuộn để zoom. <span class="small">Sử dụng thanh điều khiển (bên phải) để điều chỉnh mực nước, tốc độ và mưa.</span>
+    <div class="small">File này giờ có thể mở trực tiếp (double click), không cần server.</div>
+  </div>
+  <div id="canvas-wrap"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GUI } from 'lil-gui';
+    import { createNoise2D } from 'simplex-noise';
+
+    const container = document.getElementById('canvas-wrap');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x99c0ff);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 5000);
+    camera.position.set(60, 40, 80);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0,6,0);
+    controls.update();
+
+    // Lights
+    const hemi = new THREE.HemisphereLight(0xbfefff, 0x444444, 0.8);
+    hemi.position.set(0,200,0);
+    scene.add(hemi);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    sun.position.set(80,120,50);
+    sun.castShadow = true;
+    sun.shadow.camera.left = -150; sun.shadow.camera.right = 150;
+    sun.shadow.camera.top = 150; sun.shadow.camera.bottom = -150;
+    sun.shadow.mapSize.set(2048,2048);
+    scene.add(sun);
+
+    // Terrain
+    const size = 200;
+    const segments = 128;
+    const terrainGeo = new THREE.PlaneGeometry(size, size, segments, segments);
+    terrainGeo.rotateX(-Math.PI/2);
+
+    const noise2D = createNoise2D(Math.random);
+    const scale = 0.12;
+    const heightMul = 8;
+
+    for (let i = 0; i < terrainGeo.attributes.position.count; i++){
+      const vx = terrainGeo.attributes.position.getX(i);
+      const vz = terrainGeo.attributes.position.getZ(i);
+      const h = noise2D(vx*scale, vz*scale) + 0.5*noise2D(vx*scale*2.5, vz*scale*2.5);
+      terrainGeo.attributes.position.setY(i, h*heightMul);
+    }
+    terrainGeo.computeVertexNormals();
+
+    const terrainMat = new THREE.MeshStandardMaterial({color:0x6b8e23, roughness:1});
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    terrain.receiveShadow = true;
+    scene.add(terrain);
+
+    // Roads (simple)
+    const roadGeo = new THREE.PlaneGeometry(200, 12);
+    roadGeo.rotateX(-Math.PI/2);
+    const roadMat = new THREE.MeshStandardMaterial({color:0x333333});
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.position.y = 0.25;
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // Buildings: create a grid of boxes placed on terrain
+    const buildings = new THREE.Group();
+    const bMat = new THREE.MeshStandardMaterial({color:0xd9d9d9, metalness:0.05, roughness:0.6});
+
+    function getTerrainHeight(x,z){
+      const ray = new THREE.Raycaster(new THREE.Vector3(x,1000,z), new THREE.Vector3(0,-1,0));
+      const intersects = ray.intersectObject(terrain);
+      return intersects.length ? intersects[0].point.y : 0;
+    }
+
+    const gridSize = 10;
+    for (let i=-gridSize;i<=gridSize;i++){
+      for (let j=-gridSize;j<=gridSize;j++){
+        if (Math.random() < 0.65) continue; // sparse
+        const bx = i*8 + (Math.random()-0.5)*2;
+        const bz = j*8 + (Math.random()-0.5)*2;
+        const baseY = getTerrainHeight(bx,bz);
+        const h = 4 + Math.round(Math.random()*12);
+        const bw = 4 + Math.random()*4;
+        const bd = 4 + Math.random()*4;
+        const geom = new THREE.BoxGeometry(bw, h, bd);
+        const mat = bMat.clone();
+        mat.color = new THREE.Color().setHSL(0.08,0.05,0.9 - Math.random()*0.15);
+        const b = new THREE.Mesh(geom, mat);
+        b.castShadow = true; b.receiveShadow = true;
+        b.position.set(bx, baseY + h/2, bz);
+        b.userData = {baseY: b.position.y - h/2, height: h};
+        buildings.add(b);
+      }
+    }
+    scene.add(buildings);
+
+    // Water plane
+    const waterGeom = new THREE.PlaneGeometry(400,400,128,128);
+    waterGeom.rotateX(-Math.PI/2);
+
+    const waterUniforms = {
+      time: {value:0},
+      waterLevel: {value:2.0},
+      waveAmp: {value:0.6},
+      waveFreq: {value:0.2},
+      color: {value: new THREE.Color(0x1e90ff)},
+      opacity: {value: 0.6}
+    };
+
+    const waterMat = new THREE.ShaderMaterial({
+      transparent:true,
+      uniforms: waterUniforms,
+      vertexShader: `
+        uniform float time; uniform float waveAmp; uniform float waveFreq;
+        varying float vHeight; varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          vec3 pos = position;
+          float w = sin((pos.x+time*8.0)*waveFreq)*sin((pos.z+time*6.0)*waveFreq);
+          pos.y += w * waveAmp;
+          vHeight = pos.y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color; uniform float opacity; varying float vHeight; varying vec2 vUv;
+        void main(){
+          float alpha = smoothstep( -1.0, 1.0, 1.0 - abs(vHeight));
+          vec3 c = color * (0.5 + 0.5*vUv.y);
+          gl_FragColor = vec4(c, opacity*alpha);
+        }
+      `
+    });
+    const water = new THREE.Mesh(waterGeom, waterMat);
+    water.position.y = waterUniforms.waterLevel.value;
+    water.receiveShadow = true;
+    scene.add(water);
+
+    // Rain particles
+    const rainCount = 15000;
+    const rainGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(rainCount*3);
+    const velocities = new Float32Array(rainCount);
+    for (let i=0;i<rainCount;i++){
+      positions[i*3+0] = (Math.random()-0.5)*size*0.9;
+      positions[i*3+1] = Math.random()*80 + 20;
+      positions[i*3+2] = (Math.random()-0.5)*size*0.9;
+      velocities[i] = 0.4 + Math.random()*0.8;
+    }
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    rainGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities,1));
+
+    const rainMat = new THREE.PointsMaterial({size:0.9, transparent:true, opacity:0.6});
+    const rain = new THREE.Points(rainGeo, rainMat);
+    scene.add(rain);
+
+    // GUI controls
+    const gui = new GUI({width:320});
+    const params = {
+      waterLevel: 2.0,
+      riseSpeed: 0.15,
+      maxWater: 40,
+      waveAmp: 0.6,
+      waveFreq: 0.2,
+      rain: true,
+      rainIntensity: 1.0,
+      reset: ()=>{ params.waterLevel = 2.0; }
+    };
+
+    gui.add(params, 'waterLevel', -5, 50, 0.1).name('Mực nước (m)').onChange(v=>{ waterUniforms.waterLevel.value = v; water.position.y = v; });
+    gui.add(params, 'riseSpeed', 0, 2, 0.01).name('Tốc độ dâng (m/s)');
+    gui.add(params, 'maxWater', 0, 100, 1).name('Mực tối đa');
+    gui.add(params, 'waveAmp', 0, 3, 0.01).name('Biên sóng').onChange(v=> waterUniforms.waveAmp.value = v);
+    gui.add(params, 'waveFreq', 0, 2, 0.01).name('Tần số sóng').onChange(v=> waterUniforms.waveFreq.value = v);
+    gui.add(params, 'rain').name('Mưa');
+    gui.add(params, 'rainIntensity', 0, 3, 0.01).name('Cường độ mưa');
+    gui.add(params, 'reset').name('Đặt lại mực nước');
+
+    function updateBuildingsWaterEffects(waterLevel){
+      buildings.children.forEach(b=>{
+        const base = b.userData.baseY;
+        const submerged = Math.max(0, Math.min(1, (waterLevel - base) / b.userData.height));
+        const dryColor = new THREE.Color(0xdddddd);
+        const wetColor = new THREE.Color(0x89a6c9);
+        b.material.color.copy(dryColor).lerp(wetColor, submerged*0.9);
+        b.material.emissive.setScalar(submerged*0.15);
+      });
+    }
+
+    let last = performance.now()/1000;
+    let perfNow = 0;
+
+    function animate(){
+      requestAnimationFrame(animate);
+      const now = performance.now()/1000;
+      const dt = Math.min(now - last, 0.05);
+      last = now; perfNow = now;
+
+      if (params.waterLevel < params.maxWater){
+        params.waterLevel += params.riseSpeed * dt;
+        waterUniforms.waterLevel.value = params.waterLevel;
+        water.position.y = params.waterLevel;
+      }
+
+      waterUniforms.time.value += dt*0.4;
+
+      const posAttr = rain.geometry.attributes.position.array;
+      const velAttr = rain.geometry.attributes.velocity.array;
+      const rainSpeed = 50 * params.rainIntensity;
+      for (let i=0;i<rainCount;i++){
+        let y = posAttr[i*3+1];
+        y -= velAttr[i]*dt*rainSpeed;
+        if (y < -10){
+          posAttr[i*3+0] = (Math.random()-0.5)*size*0.9;
+          posAttr[i*3+1] = Math.random()*80 + 20;
+          posAttr[i*3+2] = (Math.random()-0.5)*size*0.9;
+        } else {
+          posAttr[i*3+1] = y;
+        }
+      }
+      rain.geometry.attributes.position.needsUpdate = true;
+      rain.visible = params.rain;
+
+      updateBuildingsWaterEffects(params.waterLevel);
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
